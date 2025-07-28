@@ -10,8 +10,10 @@ RL_Sim::RL_Sim()
     : rclcpp::Node("rl_sim_node")
 #endif
 {
+    /* ******************************初始化开始********************************** */
 #if defined(USE_ROS1)
-    this->ang_vel_type = "ang_vel_world";//目前还不知道有什么用，可以后面来看
+    //角速度在世界坐标系下的类型，还有一个参数为ang_vel_body，角速度在机器人坐标系下的类型
+    this->ang_vel_type = "ang_vel_world";
     ros::NodeHandle nh;
     nh.param<std::string>("ros_namespace", this->ros_namespace, "");
     nh.param<std::string>("robot_name", this->robot_name, "");
@@ -88,10 +90,11 @@ RL_Sim::RL_Sim()
     this->robot_command_publisher_msg.motor_command.resize(this->params.num_of_dofs);
     this->robot_state_subscriber_msg.motor_state.resize(this->params.num_of_dofs);
 #endif
-    this->InitOutputs();//初始化关节电机力矩、位置和速度
-    this->InitControl();//初始化控制参数
+    this->InitOutputs();//初始化关节电机力矩、位置和速度,主要是初始位置。
+    this->InitControl();//初始化控制参数,包括x,y,yaw
 
 #if defined(USE_ROS1)
+    //加载控制器ros_controller，相当于在launch文件中加载控制器
     this->StartJointController(this->ros_namespace, this->params.joint_controller_names);
     // publisher
     for (int i = 0; i < this->params.num_of_dofs; ++i)
@@ -199,20 +202,26 @@ RL_Sim::~RL_Sim()
 void RL_Sim::StartJointController(const std::string& ros_namespace, const std::vector<std::string>& names)
 {
 #if defined(USE_ROS1)
-    //fork()是linux系统用来创建一个子进程的函数，返回值在父进程中是子进程的真实pid号，在子进程中=0.
+    //fork()是linux系统用来创建一个子进程的函数，返回值在父进程中是子进程的真实pid号，在子进程中=0。
     pid_t pid0 = fork();
     if (pid0 == 0)
     {
         //在 ROS 中，controller_manager 负责管理机器人硬件接口和控制器。
+        //是ros_control提供的机器人硬件接口，用于与实际机器人硬件进行交互，当然也可以用于仿真的控制器加载。
         //spawner 节点可以在运行时启动新的控制器，不用在 launch 文件里静态加载。
         std::string cmd = "rosrun controller_manager spawner joint_state_controller ";
+        //遍历容器names，将每个元素name拼接在cmd后面，中间用空格隔开。
         for (const auto& name : names)
         {
             cmd += name + " ";
         }
         cmd += "__ns:=" + ros_namespace;//拼接一个rosrun命令用于开启
         // cmd += " > /dev/null 2>&1";  // Comment this line to see the output
+        //这行代码用于执行cmd命令，sh -c 表示执行shell命令，cmd.c_str()将cmd字符串转换为C风格字符串，nullptr表示参数结束。
         execlp("sh", "sh", "-c", cmd.c_str(), nullptr);
+
+        //一下代码在execlp() 的成功执行后不会执行，因为execlp()会替换当前进程的代码段和数据段，因此调用它后，不会返回。
+        //只有当execlp()执行失败时，才会执行exit(1)。
         exit(1);
     }
 #elif defined(USE_ROS2)
@@ -626,10 +635,10 @@ void signalHandler(int signum)
 int main(int argc, char **argv)
 {
 #if defined(USE_ROS1)
-    signal(SIGINT, signalHandler);//信号处理函数，用于捕获Ctrl+C
+    signal(SIGINT, signalHandler);//信号处理函数，用于捕获Ctrl+C,先关闭ros再关闭程序
     ros::init(argc, argv, "rl_sar");//初始化ros节点
     RL_Sim rl_sar;//实例化RL_Sim类
-    ros::spin();//阻塞函数
+    ros::spin();//阻塞函数，用于等待回调函数的触发
 #elif defined(USE_ROS2)
     rclcpp::init(argc, argv);
     rclcpp::spin(std::make_shared<RL_Sim>());

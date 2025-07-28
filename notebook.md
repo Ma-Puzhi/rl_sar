@@ -110,4 +110,23 @@ todo
 | SIGTSTP   | 20        | 停止进程      | 终端暂停(Ctrl+Z)                     |  
 | SIGTTIN   | 21        | 停止进程      | 后台进程尝试从终端读取               |  
 | SIGTTOU   | 22        | 停止进程      | 后台进程尝试向终端写入               |  
+  
 
+1.8 基于范围的for循环
+for (const auto& name : names)  
+{  
+    std::cout << name << std::endl;  
+}  
+这是范围循环的语法，相当于遍历容器names中的每个元素，将每个元素赋值给name。  
+
+1.9 execlp()  
+execlp() 是一个 C 标准库函数，用于在当前进程中执行一个新的程序。  
+它的函数原型为：  
+```c  
+int execlp(const char *file, const char *arg, ...);  
+```  
+- file 参数指定要执行的程序的路径名。  
+- arg 参数指定要传递给新程序的命令行参数，必须以 NULL 结尾。  
+- execlp() 会替换当前进程的代码段和数据段，因此调用它后，不会返回。  
+- 在本代码中采用sh，其中第一个sh代表从/bin/sh中查找sh程序，第二个sh代表sh程序的路径名，-c代表后面的命令是一个字符串，而不是一个文件名。shell是命令行解释器，用于解释和执行用户输入的命令。  
+- 本函数参数的结尾一定是NULL/nullptr，否则会导致未定义行为。
