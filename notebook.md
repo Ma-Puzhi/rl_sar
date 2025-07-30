@@ -129,4 +129,12 @@ int execlp(const char *file, const char *arg, ...);
 - arg 参数指定要传递给新程序的命令行参数，必须以 NULL 结尾。  
 - execlp() 会替换当前进程的代码段和数据段，因此调用它后，不会返回。  
 - 在本代码中采用sh，其中第一个sh代表从/bin/sh中查找sh程序，第二个sh代表sh程序的路径名，-c代表后面的命令是一个字符串，而不是一个文件名。shell是命令行解释器，用于解释和执行用户输入的命令。  
-- 本函数参数的结尾一定是NULL/nullptr，否则会导致未定义行为。
+- 本函数参数的结尾一定是NULL/nullptr，否则会导致未定义行为。  
+
+1.10 对于std::map类型的数据详细见：  
+https://blog.csdn.net/weixin_74396256/article/details/143272463  
+
+1.11 对于std::function和std::bind的详细介绍：  
+https://blog.csdn.net/bandaoyu/article/details/106084948  
+
+1.12 

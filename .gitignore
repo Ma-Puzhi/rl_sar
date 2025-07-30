@@ -1,0 +1,14 @@
+build
+devel
+logs
+install
+log
+.catkin_tools
+.vscode
+*.csv
+.cache
+*.json
+__pycache__
+cmake_build
+
+package.xml

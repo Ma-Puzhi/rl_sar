@@ -2,7 +2,7 @@
  * Copyright (c) 2024-2025 Ziqi Fan
  * SPDX-License-Identifier: Apache-2.0
  */
-
+#define USE_ROS1
 #include "rl_sim.hpp"
 
 RL_Sim::RL_Sim()
@@ -12,7 +12,7 @@ RL_Sim::RL_Sim()
 {
     /* ******************************初始化开始********************************** */
 #if defined(USE_ROS1)
-    //角速度在世界坐标系下的类型，还有一个参数为ang_vel_body，角速度在机器人坐标系下的类型
+    //角速度在世界坐标系下的类型，还有一个类型为ang_vel_body，角速度在机器人坐标系下的类型
     this->ang_vel_type = "ang_vel_world";
     ros::NodeHandle nh;
     nh.param<std::string>("ros_namespace", this->ros_namespace, "");
@@ -295,9 +295,9 @@ void RL_Sim::GetState(RobotState<double> *state)
     for (int i = 0; i < this->params.num_of_dofs; ++i)
     {
 #if defined(USE_ROS1)
-        state->motor_state.q[i] = this->joint_positions[this->params.joint_controller_names[this->params.joint_mapping[i]]];
-        state->motor_state.dq[i] = this->joint_velocities[this->params.joint_controller_names[this->params.joint_mapping[i]]];
-        state->motor_state.tau_est[i] = this->joint_efforts[this->params.joint_controller_names[this->params.joint_mapping[i]]];
+    state->motor_state.q[i] = this->joint_positions[this->params.joint_controller_names[this->params.joint_mapping[i]]];
+    state->motor_state.dq[i] = this->joint_velocities[this->params.joint_controller_names[this->params.joint_mapping[i]]];
+    state->motor_state.tau_est[i] = this->joint_efforts[this->params.joint_controller_names[this->params.joint_mapping[i]]];
 #elif defined(USE_ROS2)
         state->motor_state.q[i] = this->robot_state_subscriber_msg.motor_state[this->params.joint_mapping[i]].q;
         state->motor_state.dq[i] = this->robot_state_subscriber_msg.motor_state[this->params.joint_mapping[i]].dq;
@@ -524,42 +524,64 @@ void RL_Sim::RobotStateCallback(const robot_msgs::msg::RobotState::SharedPtr msg
 
 void RL_Sim::RunModel()
 {
+    // 只有当强化学习模型初始化完成且仿真正在运行时才执行
     if (this->rl_init_done && simulation_running)
     {
+        // 记录当前回合长度（步数）
         this->episode_length_buf += 1;
+
+        // 采集机器人当前角速度（陀螺仪数据），并转换为 torch 张量
         // this->obs.lin_vel = torch::tensor({{this->vel.linear.x, this->vel.linear.y, this->vel.linear.z}});
         this->obs.ang_vel = torch::tensor(this->robot_state.imu.gyroscope).unsqueeze(0);
+
+        // 判断当前是否为导航模式
         if (this->control.navigation_mode)
         {
+            // 导航模式下，命令来源于 cmd_vel（如遥控器/导航算法）
             this->obs.commands = torch::tensor({{this->cmd_vel.linear.x, this->cmd_vel.linear.y, this->cmd_vel.angular.z}});
         }
         else
         {
+            // 非导航模式下，命令来源于键盘或手柄输入
             this->obs.commands = torch::tensor({{this->control.x, this->control.y, this->control.yaw}});
         }
+
+        // 采集机器人当前姿态（四元数），并转换为 torch 张量
         this->obs.base_quat = torch::tensor(this->robot_state.imu.quaternion).unsqueeze(0);
+
+        // 采集所有关节的当前位置，并转换为 torch 张量
         this->obs.dof_pos = torch::tensor(this->robot_state.motor_state.q).narrow(0, 0, this->params.num_of_dofs).unsqueeze(0);
+
+        // 采集所有关节的当前速度，并转换为 torch 张量
         this->obs.dof_vel = torch::tensor(this->robot_state.motor_state.dq).narrow(0, 0, this->params.num_of_dofs).unsqueeze(0);
 
+        // 前向推理，得到强化学习模型输出的动作（关节目标）
         this->obs.actions = this->Forward();
+
+        // 根据动作，计算关节目标位置、速度、力矩等输出
         this->ComputeOutput(this->obs.actions, this->output_dof_pos, this->output_dof_vel, this->output_dof_tau);
 
+        // 如果输出的关节位置有效，则推入队列（用于后续控制或记录）
         if (this->output_dof_pos.defined() && this->output_dof_pos.numel() > 0)
         {
             output_dof_pos_queue.push(this->output_dof_pos);
         }
+        // 如果输出的关节速度有效，则推入队列
         if (this->output_dof_vel.defined() && this->output_dof_vel.numel() > 0)
         {
             output_dof_vel_queue.push(this->output_dof_vel);
         }
+        // 如果输出的关节力矩有效，则推入队列
         if (this->output_dof_tau.defined() && this->output_dof_tau.numel() > 0)
         {
             output_dof_tau_queue.push(this->output_dof_tau);
         }
 
+        // 力矩保护（防止输出异常力矩），此处被注释掉
         // this->TorqueProtect(this->output_dof_tau);
 
 #ifdef CSV_LOGGER
+        // 如果启用 CSV 日志，记录当前输出和观测
         torch::Tensor tau_est = torch::zeros({1, this->params.num_of_dofs});
         for (int i = 0; i < this->params.num_of_dofs; ++i)
         {
@@ -569,6 +591,7 @@ void RL_Sim::RunModel()
 #endif
     }
 }
+
 
 torch::Tensor RL_Sim::Forward()
 {

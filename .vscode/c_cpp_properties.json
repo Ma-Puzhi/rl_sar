@@ -1,17 +1,21 @@
 {
   "configurations": [
     {
-      "name": "windows-gcc-x64",
+      "browse": {
+        "databaseFilename": "${default}",
+        "limitSymbolsToIncludedHeaders": false
+      },
       "includePath": [
-        "${workspaceFolder}/**"
+        "/home/ma/rl/rl_sar/devel/include/**",
+        "/opt/ros/noetic/include/**",
+        "/home/ma/rl/rl_sar/src/rl_sar/include/**",
+        "/usr/include/**"
       ],
-      "compilerPath": "gcc",
-      "cStandard": "${default}",
-      "cppStandard": "${default}",
-      "intelliSenseMode": "windows-gcc-x64",
-      "compilerArgs": [
-        ""
-      ]
+      "name": "ROS",
+      "intelliSenseMode": "gcc-x64",
+      "compilerPath": "/usr/bin/gcc",
+      "cStandard": "gnu11",
+      "cppStandard": "c++14"
     }
   ],
   "version": 4
