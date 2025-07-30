@@ -230,7 +230,7 @@ public:
     void TorqueProtect(torch::Tensor origin_output_dof_tau);
     void AttitudeProtect(const std::vector<double> &quaternion, float pitch_threshold, float roll_threshold);
 
-    // rl module
+    // rl module  这个类型是 PyTorch C++ API（LibTorch） 提供的，是官方的 C++ 推理接口。它用于加载和运行用 Python/PyTorch
     torch::jit::script::Module model;
     // output buffer
     torch::Tensor output_dof_tau;

@@ -2,7 +2,7 @@
  * Copyright (c) 2024-2025 Ziqi Fan
  * SPDX-License-Identifier: Apache-2.0
  */
-#define USE_ROS1
+// #define USE_ROS1
 #include "rl_sim.hpp"
 
 RL_Sim::RL_Sim()
@@ -595,28 +595,37 @@ void RL_Sim::RunModel()
 
 torch::Tensor RL_Sim::Forward()
 {
+    // 关闭自动求导（推理阶段不需要梯度，提升效率）
     torch::autograd::GradMode::set_enabled(false);
 
+    // 计算当前观测（如关节状态、IMU、命令等），返回一个 torch 张量
     torch::Tensor clamped_obs = this->ComputeObservation();
 
     torch::Tensor actions;
+    // 如果有观测历史（比如用于 RNN 或时间序列模型）
     if (this->params.observations_history.size() != 0)
     {
+        // 把当前观测插入历史缓冲区
         this->history_obs_buf.insert(clamped_obs);
+        // 从缓冲区获取一段历史观测序列
         this->history_obs = this->history_obs_buf.get_obs_vec(this->params.observations_history);
+        // 用历史观测序列作为输入，前向推理得到动作
         actions = this->model.forward({this->history_obs}).toTensor();
     }
     else
     {
+        // 没有历史，直接用当前观测作为输入，前向推理得到动作
         actions = this->model.forward({clamped_obs}).toTensor();
     }
 
+    // 如果设置了动作裁剪（限制动作输出范围），则裁剪
     if (this->params.clip_actions_upper.numel() != 0 && this->params.clip_actions_lower.numel() != 0)
     {
         return torch::clamp(actions, this->params.clip_actions_lower, this->params.clip_actions_upper);
     }
     else
     {
+        // 否则直接返回动作
         return actions;
     }
 }
